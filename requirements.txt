@@ -1,0 +1,16 @@
+streamlit
+python-dotenv
+langchain
+langchain-huggingface
+langchain-community
+faiss-cpu
+langchain-groq
+tiktoken
+Pillow
+PyPDF2
+unstructured
+unstructured[docx]
+azure-search-documents==11.5.0
+azure-core
+openai
+langchain-openai
