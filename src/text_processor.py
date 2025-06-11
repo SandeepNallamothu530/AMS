@@ -39,8 +39,8 @@ class TextProcessor:
 
     @staticmethod
     def get_vectorstore(text_chunks: List[str]) -> Optional[object]:
-        """Create vector store from text chunks using Azure Cognitive Search.
-        If an existing index is present, delete it before creating a new one.
+        """Create or update vector store from text chunks using Azure Cognitive Search.
+        New embeddings will be merged with existing index if present.
         """
         if not text_chunks:
             logger.debug("No text chunks provided")
@@ -58,32 +58,18 @@ class TextProcessor:
             # Prepare documents
             docs = [Document(page_content=chunk) for chunk in text_chunks]
 
-            # Create proper Azure credential
-            credential = AzureKeyCredential(Config.AZURE_SEARCH_KEY)
-
-            # Delete existing Azure Search index if it exists
-            index_client = SearchIndexClient(
-                endpoint=Config.AZURE_SEARCH_ENDPOINT,
-                credential=credential
-            )
-
-            try:
-                index_client.get_index(Config.AZURE_SEARCH_INDEX_NAME)
-                index_client.delete_index(Config.AZURE_SEARCH_INDEX_NAME)
-                logger.info(f"Deleted existing Azure Search index: {Config.AZURE_SEARCH_INDEX_NAME}")
-            except ResourceNotFoundError:
-                logger.info(f"No existing Azure Search index to delete: {Config.AZURE_SEARCH_INDEX_NAME}")
-
-            # Create AzureSearch vector store
-            vectorstore = AzureSearch.from_documents(
-                documents=docs,
-                embedding=embeddings,
+            # Create or update AzureSearch vector store
+            vectorstore = AzureSearch(
                 azure_search_endpoint=Config.AZURE_SEARCH_ENDPOINT,
                 azure_search_key=Config.AZURE_SEARCH_KEY,
                 index_name=Config.AZURE_SEARCH_INDEX_NAME,
+                embedding_function=embeddings,
             )
-            logger.info(f"Created Azure vector store with {len(text_chunks)} chunks")
+
+            # Add new documents to existing index
+            vectorstore.add_documents(docs)
+            logger.info(f"Added {len(text_chunks)} new chunks to Azure vector store")
             return vectorstore
         except Exception as e:
-            logger.error(f"Error creating Azure vector store: {e}", exc_info=True)
+            logger.error(f"Error updating Azure vector store: {e}", exc_info=True)
             return None
