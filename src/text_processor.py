@@ -6,10 +6,10 @@ from langchain_openai import AzureOpenAIEmbeddings
 from src.config import Config
 from langchain_community.vectorstores.azuresearch import AzureSearch
 from langchain.schema import Document
-from azure.core.exceptions import ResourceNotFoundError
-from azure.search.documents.indexes import SearchIndexClient
-from azure.search.documents.indexes.models import SearchIndex
-from azure.core.credentials import AzureKeyCredential
+# from azure.core.exceptions import ResourceNotFoundError
+# from azure.search.documents.indexes import SearchIndexClient
+# from azure.search.documents.indexes.models import SearchIndex
+# from azure.core.credentials import AzureKeyCredential
 
 logger = logging.getLogger(__name__)
 
@@ -38,16 +38,13 @@ class TextProcessor:
             return []
 
     @staticmethod
-    def get_vectorstore(text_chunks: List[str]) -> Optional[object]:
-        """Create or update vector store from text chunks using Azure Cognitive Search.
-        New embeddings will be merged with existing index if present.
-        """
-        if not text_chunks:
+    def get_vectorstore(file_chunks: list) -> Optional[object]:
+        """Create or update vector store from file_chunks [(file_name, chunk)]."""
+        if not file_chunks:
             logger.debug("No text chunks provided")
             return None
 
         try:
-            # Configure embeddings
             embeddings = AzureOpenAIEmbeddings(
                 azure_endpoint=Config.AZURE_OPENAI_ENDPOINT,
                 azure_deployment=Config.EMBEDDING_MODEL,
@@ -55,10 +52,10 @@ class TextProcessor:
                 api_version=Config.AZURE_API_VERSION,
             )
 
-            # Prepare documents
-            docs = [Document(page_content=chunk) for chunk in text_chunks]
+            docs = []
+            for file_name, chunk in file_chunks:
+                docs.append(Document(page_content=chunk, metadata={"file_name": file_name}))
 
-            # Create or update AzureSearch vector store
             vectorstore = AzureSearch(
                 azure_search_endpoint=Config.AZURE_SEARCH_ENDPOINT,
                 azure_search_key=Config.AZURE_SEARCH_KEY,
@@ -66,9 +63,8 @@ class TextProcessor:
                 embedding_function=embeddings,
             )
 
-            # Add new documents to existing index
             vectorstore.add_documents(docs)
-            logger.info(f"Added {len(text_chunks)} new chunks to Azure vector store")
+            logger.info(f"Added {len(docs)} new chunks to Azure vector store")
             return vectorstore
         except Exception as e:
             logger.error(f"Error updating Azure vector store: {e}", exc_info=True)

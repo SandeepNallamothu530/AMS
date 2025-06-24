@@ -1,7 +1,7 @@
 import os
 import streamlit as st
 from PIL import Image
-from typing import List, Dict, Any
+# from typing import List, Dict, Any
 from UI.htmlTemplates import css, bot_template, user_template
 from src.config import Config
 from src.conversation_handler import ConversationHandler
@@ -79,7 +79,8 @@ class UIComponents:
             if hasattr(st.session_state, 'last_source_documents') and st.session_state.last_source_documents:
                 with st.expander("📄 Source Documents"):
                     for i, doc in enumerate(st.session_state.last_source_documents):
-                        st.write(f"**Source {i+1}:**")
+                        file_name = doc.metadata.get("file_name", f"Source {i+1}")
+                        st.write(f"**Source {i+1} ({file_name}):**")
                         st.write(doc.page_content[:1000] + "..." if len(doc.page_content) > 1000 else doc.page_content)
                         st.write("---")
 

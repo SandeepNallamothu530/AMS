@@ -3,7 +3,7 @@ import logging
 from src.config import Config
 from src.document_processor import DocumentProcessor
 from src.text_processor import TextProcessor
-from src.conversation_handler import ConversationHandler
+# from src.conversation_handler import ConversationHandler
 from src.ui_components import UIComponents
 
 logger = logging.getLogger(__name__)
@@ -56,17 +56,21 @@ class AMSBotApp:
         with st.spinner("Processing documents..."):
             try:
                 # Extract text from documents
-                raw_text = self.document_processor.get_text_from_documents(
+                file_texts = self.document_processor.get_text_from_documents(
                     uploaded_files, 
                     status_callback=self.ui_components.display_status
                 )
                 
-                if not raw_text.strip():
+                if not file_texts or not any(text for _, text in file_texts):
                     self.ui_components.display_status("error", "No text could be extracted from the uploaded files!")
                     return
                 
                 # Create text chunks
-                text_chunks = self.text_processor.get_text_chunks(raw_text)
+                text_chunks = []
+                for file_name, text in file_texts:
+                    chunks = self.text_processor.get_text_chunks(text)
+                    if chunks:
+                        text_chunks.extend([(file_name, chunk) for chunk in chunks])
                 
                 if not text_chunks:
                     self.ui_components.display_status("error", "Could not create text chunks from the documents!")

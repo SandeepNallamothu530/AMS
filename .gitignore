@@ -1,3 +1,5 @@
 *.myenv
 *.Dockerfile
 *.__pycache__
+*.monitoring.py
+*.Documents

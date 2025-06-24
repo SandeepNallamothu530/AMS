@@ -51,9 +51,9 @@ class DocumentProcessor:
             raise e
 
     @staticmethod
-    def get_text_from_documents(uploaded_files: List, status_callback=None) -> str:
-        """Extract text from various document types with PyPDF for PDFs."""
-        text = ""
+    def get_text_from_documents(uploaded_files: List, status_callback=None) -> list:
+        """Extract text from various document types and return list of (file_name, text)."""
+        results = []
         
         try:
             for uploaded_file in uploaded_files:
@@ -93,8 +93,7 @@ class DocumentProcessor:
                                 pass
                     
                     if doc_text.strip():
-                        text += f"\n\n--- Content from {uploaded_file.name} ---\n\n"
-                        text += doc_text
+                        results.append((uploaded_file.name, doc_text))
                         logger.info(f"Successfully processed {uploaded_file.name}")
                     else:
                         if status_callback:
@@ -111,7 +110,7 @@ class DocumentProcessor:
             if status_callback:
                 status_callback("error", f"Error processing documents: {e}")
         
-        return text
+        return results
 
     @staticmethod
     def validate_files(uploaded_files: List) -> tuple[bool, str]:
