@@ -1,10 +1,13 @@
 import os
 import streamlit as st
 from PIL import Image
-# from typing import List, Dict, Any
 from UI.htmlTemplates import css, bot_template, user_template
 from src.config import Config
 from src.conversation_handler import ConversationHandler
+from src.auth import Auth
+import logging
+
+logger = logging.getLogger(__name__)
 
 class UIComponents:
     """Class to handle UI components and interactions."""
@@ -23,6 +26,10 @@ class UIComponents:
     @staticmethod
     def initialize_session_state():
         """Initialize Streamlit session state variables."""
+        # Initialize authentication state
+        Auth.initialize_session_state()
+        
+        # Initialize application state
         if "conversation_handler" not in st.session_state:
             st.session_state.conversation_handler = ConversationHandler()
         if "chat_history" not in st.session_state:
@@ -31,10 +38,12 @@ class UIComponents:
             st.session_state.processed_files = []
         if "prompt_template" not in st.session_state:
             st.session_state.prompt_template = Config.get_prompt_template()
+        if "use_external_prompt" not in st.session_state:
+            st.session_state.use_external_prompt = False
     
     @staticmethod
     def render_sidebar():
-        """Render the sidebar with file upload and controls."""
+        """Render the sidebar with file upload, controls, and prompt template toggle."""
         with st.sidebar:
             # Add logo
             if os.path.exists(Config.LOGO_PATH):
@@ -50,6 +59,16 @@ class UIComponents:
                 help="Max file size: 10MB. PDFs processed with PyPDF2"
             )
 
+            # Add toggle for switching prompt template
+            external_toggle = st.toggle(
+                "Use External Prompt",
+                value=st.session_state.use_external_prompt,
+                help="Toggle to use external prompt template for responses"
+            )
+            if external_toggle != st.session_state.use_external_prompt:
+                st.session_state.use_external_prompt = external_toggle
+                UIComponents.switch_prompt_template(external_toggle)
+
             col1, col2 = st.columns(2)
             with col1:
                 process_btn = st.button("🚀 Process", type="primary", use_container_width=True)
@@ -60,6 +79,43 @@ class UIComponents:
             
             return uploaded_files, process_btn, clear_btn
     
+    @staticmethod
+    def switch_prompt_template(use_external: bool):
+        """Switch prompt template based on toggle state and update conversation chain."""
+        try:
+            # Store the current conversation chain and memory
+            current_memory = st.session_state.conversation_handler.memory
+            current_vectorstore = None
+            if st.session_state.conversation_handler.conversation_chain:
+                current_vectorstore = st.session_state.conversation_handler.conversation_chain.retriever.vectorstore
+            
+            # Update prompt template in session state based on toggle
+            st.session_state.prompt_template = (
+                Config.get_prompt_template_ext_src() if use_external else Config.get_prompt_template()
+            )
+            
+            # Update conversation handler's prompt template
+            st.session_state.conversation_handler.prompt_template = st.session_state.prompt_template
+            
+            # Recreate conversation chain with the new prompt template if vectorstore exists
+            if current_vectorstore:
+                new_conversation_chain = st.session_state.conversation_handler.get_conversation_chain(current_vectorstore)
+                if new_conversation_chain:
+                    # Restore the previous memory to maintain conversation continuity
+                    st.session_state.conversation_handler.memory = current_memory
+                    st.session_state.conversation_handler.conversation_chain = new_conversation_chain
+                    st.success(f"✅ Switched to {'external' if use_external else 'default'} prompt template")
+                else:
+                    st.error(f"Failed to recreate conversation chain with {'external' if use_external else 'default'} prompt template")
+            else:
+                st.success(f"✅ Switched to {'external' if use_external else 'default'} prompt template. Process documents to apply changes.")
+        except AttributeError as e:
+            st.error(f"Error switching prompt template: {e}. Please ensure the prompt templates are correctly defined.")
+            logger.error(f"AttributeError in switch_prompt_template: {e}")
+        except Exception as e:
+            st.error(f"Unexpected error switching prompt template: {e}")
+            logger.error(f"Unexpected error in switch_prompt_template: {e}")
+
     @staticmethod
     def render_main_chat():
         """Render the main chat interface."""
@@ -139,5 +195,7 @@ class UIComponents:
         st.session_state.processed_files = []
         if 'last_source_documents' in st.session_state:
             del st.session_state.last_source_documents
+        st.session_state.prompt_template = Config.get_prompt_template()  # Reset to default prompt template
+        st.session_state.use_external_prompt = False  # Reset toggle to default
         st.success("✅ Cleared all data!")
         st.rerun()
