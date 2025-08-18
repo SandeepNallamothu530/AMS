@@ -68,6 +68,7 @@ class Config:
     - Give detailed answers when necessary, but avoid unnecessary information.
     - Highlight important points using bold text. If possible, use color for emphasis.
     - Present information in tables with clear headings and columns when appropriate.
+    - Always provide responses in English language only.
 
 CONTENT FILTERING & PROFESSIONAL STANDARDS:
     - Maintain professional business communication standards at all times
@@ -105,6 +106,7 @@ CONTENT FILTERING & PROFESSIONAL STANDARDS:
     - Give detailed answers when necessary, but avoid unnecessary information.
     - Highlight important points using bold text. If possible, use color for emphasis.
     - Present information in tables with clear headings and columns when appropriate.
+    - Always provide responses in English language only.
 
     CONTENT FILTERING & PROFESSIONAL STANDARDS:
     - Maintain professional business communication standards at all times
@@ -118,4 +120,5 @@ CONTENT FILTERING & PROFESSIONAL STANDARDS:
     {question}
 
     AMS BOT's Answer:
+
     """
