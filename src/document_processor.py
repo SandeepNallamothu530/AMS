@@ -3,6 +3,7 @@ import io
 import tempfile
 import logging
 from typing import List, Dict, Any
+import pandas as pd
 import PyPDF2
 from langchain_community.document_loaders import UnstructuredFileLoader
 from src.config import Config
@@ -13,7 +14,7 @@ class DocumentProcessor:
     """Class to handle document processing operations."""
     
     @staticmethod
-    def extract_text_from_pdf(uploaded_file) -> str:
+    def extract_text_from_pdf(uploaded_file, file_extension) -> str:
         """Extract text from PDF using PyPDF2."""
         try:
             # Read the uploaded file content
@@ -51,6 +52,36 @@ class DocumentProcessor:
             raise e
 
     @staticmethod
+    def extract_text_from_excel(uploaded_file) -> str:
+        """Extract text from Excel files using pandas."""
+        try:
+            # Read the uploaded file content
+            excel_content = uploaded_file.getvalue()
+            excel_file = io.BytesIO(excel_content)
+            
+            # Read all sheets from the Excel file
+            xl = pd.read_excel(excel_file, sheet_name=None)
+            text = ""
+            
+            # Process each sheet
+            for sheet_name, df in xl.items():
+                # Convert DataFrame to string, including sheet name
+                text += f"\n\n--- Sheet: {sheet_name} ---\n\n"
+                # Convert DataFrame to CSV-like string
+                text += df.to_string(index=False)
+            
+            if not text.strip():
+                logger.warning(f"No text could be extracted from Excel file {uploaded_file.name}")
+                return ""
+            
+            logger.info(f"Successfully extracted text from Excel file {uploaded_file.name}")
+            return text
+            
+        except Exception as e:
+            logger.error(f"Error processing Excel file {uploaded_file.name}: {e}")
+            raise e
+
+    @staticmethod
     def get_text_from_documents(uploaded_files: List, status_callback=None) -> list:
         """Extract text from various document types and return list of (file_name, text)."""
         results = []
@@ -62,11 +93,20 @@ class DocumentProcessor:
                 try:
                     if file_extension == 'pdf':
                         # Use PyPDF2 for PDF processing
-                        doc_text = DocumentProcessor.extract_text_from_pdf(uploaded_file)
+                        doc_text = DocumentProcessor.extract_text_from_pdf(uploaded_file, file_extension)
                         
                         if not doc_text.strip():
                             if status_callback:
                                 status_callback("warning", f"⚠️ No text extracted from {uploaded_file.name}. This might be an image-based PDF.")
+                            continue
+                            
+                    elif file_extension in ['xlsx', 'xls']:
+                        # Process Excel files
+                        doc_text = DocumentProcessor.extract_text_from_excel(uploaded_file)
+                        
+                        if not doc_text.strip():
+                            if status_callback:
+                                status_callback("warning", f"⚠️ No text extracted from {uploaded_file.name}. The Excel file might be empty.")
                             continue
                             
                     else:
