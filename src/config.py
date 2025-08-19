@@ -17,7 +17,9 @@ class Config:
     SUPPORTED_FILE_TYPES = [
         "application/pdf", 
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document", 
-        "text/plain"
+        "text/plain",
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',  # .xlsx
+        'application/vnd.ms-excel'
     ]
     #======================================================================================================================
     # Text processing settings
@@ -120,6 +122,4 @@ CONTENT FILTERING & PROFESSIONAL STANDARDS:
     {question}
 
     AMS BOT's Answer:
-
     """
-
