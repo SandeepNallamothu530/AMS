@@ -55,7 +55,7 @@ class UIComponents:
             uploaded_files = st.file_uploader(
                 "Upload your documents",
                 accept_multiple_files=True,
-                type=["pdf", "docx", "txt"],
+                type=["pdf", "docx", "txt",'xlsx', 'xls'],
                 help="Max file size: 10MB. PDFs processed with PyPDF2"
             )
 
