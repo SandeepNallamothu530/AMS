@@ -15,3 +15,4 @@ azure-core
 openai
 langchain-openai
 azure-identity
+openpyxl
