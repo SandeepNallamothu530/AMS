@@ -3,7 +3,6 @@ import logging
 from src.config import Config
 from src.document_processor import DocumentProcessor
 from src.text_processor import TextProcessor
-from src.auth import Auth
 from src.ui_components import UIComponents
 
 logger = logging.getLogger(__name__)
@@ -21,17 +20,6 @@ class AMSBotApp:
         # Setup UI
         self.ui_components.setup_page()
         self.ui_components.initialize_session_state()
-        
-        # Check authentication
-        if not st.session_state.authenticated:
-            Auth.render_login_page()
-            return
-        
-        # Add logout button in sidebar
-        with st.sidebar:
-            if st.button("🚪 Logout", type="secondary"):
-                Auth.logout()
-                st.rerun()
         
         # Render UI components
         uploaded_files, process_btn, clear_btn = self.ui_components.render_sidebar()
