@@ -4,7 +4,7 @@ from PIL import Image
 from UI.htmlTemplates import css, bot_template, user_template
 from src.config import Config
 from src.conversation_handler import ConversationHandler
-from src.auth import Auth
+# from src.auth import Auth
 import logging
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ class UIComponents:
     def initialize_session_state():
         """Initialize Streamlit session state variables."""
         # Initialize authentication state
-        Auth.initialize_session_state()
+        # Auth.initialize_session_state()
         
         # Initialize application state
         if "conversation_handler" not in st.session_state:
@@ -199,3 +199,4 @@ class UIComponents:
         st.session_state.use_external_prompt = False  # Reset toggle to default
         st.success("✅ Cleared all data!")
         st.rerun()
+
