@@ -21,6 +21,19 @@ class AMSBotApp:
         self.ui_components.setup_page()
         self.ui_components.initialize_session_state()
         
+        # Authentication gate: require login before proceeding
+        if not getattr(st.session_state, "logged_in", False):
+            page = getattr(st.session_state, "page", "login")
+            
+            if page == "register":
+                self.ui_components.render_register_page()
+            elif page == "forgot_password":
+                self.ui_components.render_forgot_password_page()
+            else:  # default to login
+                self.ui_components.render_login_page()
+            return
+        
+        # User is logged in - show main application
         # Render UI components
         uploaded_files, process_btn, clear_btn = self.ui_components.render_sidebar()
         user_question = self.ui_components.render_main_chat()
