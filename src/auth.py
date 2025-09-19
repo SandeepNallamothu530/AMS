@@ -1,101 +1,207 @@
-# import streamlit as st
-# import os
-# from src.config import Config
+"""
+Simple authentication module for AMS app - Azure SQL Database
+"""
 
-# class Auth:
-#     """Authentication handler class"""
-    
-#     USERNAME = "NDBS@Admin"
-#     PASSWORD = "Admin@bs.nttdata.com"
-    
-#     @staticmethod
-#     def initialize_session_state():
-#         if "authenticated" not in st.session_state:
-#             st.session_state.authenticated = False
-#         if "username" not in st.session_state:
-#             st.session_state.username = None
-    
-#     @staticmethod
-#     def login(username: str, password: str) -> bool:
-#         if username == Auth.USERNAME and password == Auth.PASSWORD:
-#             st.session_state.authenticated = True
-#             st.session_state.username = username
-#             return True
-#         return False
-    
-#     @staticmethod
-#     def logout():
-#         st.session_state.authenticated = False
-#         st.session_state.username = None
-    
-#     @staticmethod
-#     def render_login_page():
-#         # Configure page layout
-#         st.set_page_config(
-#             page_title="Login",
-#             initial_sidebar_state="collapsed"
-#         )
+import pyodbc
+import os
+from typing import Tuple, Dict, Any
 
-#         # Create three columns for centering
-#         col1, col2, col3 = st.columns([1, 2, 1])
+# List of possible drivers to try
+POSSIBLE_DRIVERS = [
+    "ODBC Driver 18 for SQL Server",
+    "ODBC Driver 17 for SQL Server", 
+    "ODBC Driver 13 for SQL Server",
+    "SQL Server Native Client 11.0",
+    "SQL Server"
+]
 
-#         with col2:
-#             # Display logo
-#             if os.path.exists(Config.LOGO_PATH):
-#                 st.image(Config.LOGO_PATH, width=300, use_container_width=False)
+def get_available_driver():
+    """Find the first available SQL Server driver"""
+    drivers = pyodbc.drivers()
+    for driver in POSSIBLE_DRIVERS:
+        if driver in drivers:
+            return driver
+    return None
+
+def get_connection_string():
+    """Build connection string with available driver"""
+    driver = get_available_driver()
+    if not driver:
+        raise Exception("No SQL Server ODBC driver found. Please install Microsoft ODBC Driver for SQL Server.")
+    
+    # Azure SQL Database connection string - fixed format
+    return f"Driver={{{driver}}};Server=tcp:amsdbserer.database.windows.net,1433;Database=amsdb;UID=ams-admin;PWD={{password_placeholder}};Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;"
+
+def get_connection_string_alternative():
+    """Alternative connection string format for Azure SQL"""
+    driver = get_available_driver()
+    if not driver:
+        raise Exception("No SQL Server ODBC driver found.")
+    
+    # Alternative format - sometimes works better with Azure SQL
+    return f"DRIVER={{{driver}}};SERVER=amsdbserer.database.windows.net;PORT=1433;DATABASE=amsdb;UID=ams-admin;PWD={{password_placeholder}};Encrypt=yes;TrustServerCertificate=no;"
+
+def get_connection():
+    """Get database connection"""
+    try:
+        # Get password from environment variable for security
+        password = os.environ.get('AMS_DB_PASSWORD', '01@bs.nttdata.com')
+        
+        # Debug: Print connection details (remove in production)
+        driver = get_available_driver()
+        print(f"Using driver: {driver}")
+        print(f"Server: amsdbserer.database.windows.net")
+        print(f"Database: amsdb")
+        print(f"Username: ams-admin")
+        
+        # Try primary connection string first
+        try:
+            conn_str = get_connection_string().replace('{password_placeholder}', password)
+            print(f"Trying primary connection string...")
+            conn = pyodbc.connect(conn_str)
+            return conn
+        except pyodbc.Error as e1:
+            print(f"Primary connection failed: {e1}")
             
-#             # Add some spacing
-#             st.write("#")  # adds vertical space
+            # Try alternative connection string
+            print(f"Trying alternative connection string...")
+            conn_str_alt = get_connection_string_alternative().replace('{password_placeholder}', password)
+            conn = pyodbc.connect(conn_str_alt)
+            return conn
             
-#             # Title
-#             st.title("Welcome Back")
-#             st.write("Please sign in to continue")
+    except pyodbc.Error as e:
+        print(f"Database connection error: {e}")
+        print("Available drivers:", pyodbc.drivers())
+        print("\nTroubleshooting steps:")
+        print("1. Verify server name: amsdbserver.database.windows.net")
+        print("2. Check if user 'ams-admin' exists in Azure SQL")
+        print("3. Verify password is correct")
+        print("4. Check Azure SQL firewall rules")
+        print("5. Ensure database 'amsdb' exists")
+        return None
+    except Exception as e:
+        print(f"Error: {e}")
+        return None
+
+def init_auth_db() -> None:
+    """Initialize the database with users table if it doesn't exist"""
+    conn = get_connection()
+    if not conn:
+        return
+    
+    try:
+        cursor = conn.cursor()
+        
+        # Create users table if it doesn't exist
+        cursor.execute('''
+            IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='users' AND xtype='U')
+            CREATE TABLE users (
+                id INT IDENTITY(1,1),
+                email NVARCHAR(255) PRIMARY KEY NOT NULL,
+                password NVARCHAR(255) NOT NULL,
+                created_at DATETIME2 DEFAULT GETDATE()
+            )
+        ''')
+        
+        conn.commit()
+        print("Database initialized successfully")
+        
+    except pyodbc.Error as e:
+        print(f"Error initializing database: {e}")
+    finally:
+        conn.close()
+
+def create_user(email: str, password: str) -> Tuple[bool, str]:
+    """Create a new user account with email and password"""
+    # TODO: Add password hashing for security
+    init_auth_db()
+    conn = get_connection()
+    if not conn:
+        return False, "Database connection failed"
+    
+    try:
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO users (email, password) VALUES (?, ?)", (email, password))
+        conn.commit()
+        return True, "Account created successfully"
+        
+    except pyodbc.IntegrityError:
+        return False, "Email already exists"
+    except pyodbc.Error as e:
+        return False, f"Database error: {e}"
+    finally:
+        conn.close()
+
+def get_user_by_email(email: str) -> Tuple[bool, Any]:
+    """Fetch user by email"""
+    init_auth_db()
+    conn = get_connection()
+    if not conn:
+        return False, "Database connection failed"
+    
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, email, password FROM users WHERE email = ?", (email,))
+        row = cursor.fetchone()
+        
+        if row:
+            return True, {"id": row[0], "email": row[1], "password": row[2]}
+        return False, "Email not found"
+        
+    except pyodbc.Error as e:
+        return False, f"Database error: {e}"
+    finally:
+        conn.close()
+
+def authenticate_user(email: str, password: str) -> Tuple[bool, str]:
+    """Authenticate user login with email and password"""
+    ok, user = get_user_by_email(email)
+    if not ok:
+        return False, "Invalid email or password"
+    
+    # TODO: Use proper password hashing (bcrypt, scrypt, etc.)
+    # Direct password comparison (NOT SECURE for production)
+    if password == user["password"]:
+        return True, "Login successful"
+    else:
+        return False, "Invalid email or password"
+
+def get_password_by_email(email: str) -> Tuple[bool, str]:
+    """Get password for forgot password functionality"""
+    # WARNING: This is a security risk - passwords should never be retrievable
+    ok, user = get_user_by_email(email)
+    if not ok:
+        return False, "Email not found"
+    
+    return True, user["password"]
+
+def test_connection():
+    """Test database connection"""
+    try:
+        print(f"Available drivers: {pyodbc.drivers()}")
+        driver = get_available_driver()
+        if driver:
+            print(f"Using driver: {driver}")
+        else:
+            return False, "No suitable SQL Server driver found"
             
-#             # Login Form
-#             with st.form("login_form", clear_on_submit=False):
-#                 username = st.text_input(
-#                     "Username",
-#                     placeholder="Enter your username",
-#                     key="username_input"
-#                 )
-                
-#                 password = st.text_input(
-#                     "Password",
-#                     type="password",
-#                     placeholder="Enter your password",
-#                     key="password_input"
-#                 )
-                
-#                 # Add some space before the button
-#                 st.write("")
-                
-#                 submitted = st.form_submit_button(
-#                     "Sign In",
-#                     type="primary",
-#                     use_container_width=True
-#                 )
+        conn = get_connection()
+        if conn:
+            try:
+                cursor = conn.cursor()
+                cursor.execute("SELECT 1")
+                result = cursor.fetchone()
+                conn.close()
+                return True, "Connection successful"
+            except pyodbc.Error as e:
+                conn.close()
+                return False, f"Connection test failed: {e}"
+        else:
+            return False, "Could not establish connection"
+    except Exception as e:
+        return False, f"Error: {e}"
 
-#                 if submitted:
-#                     if username and password:
-#                         if Auth.login(username, password):
-#                             st.success("✅ Login successful! Redirecting...")
-#                             st.rerun()
-#                         else:
-#                             st.error("❌ Invalid username or password")
-#                     else:
-#                         st.warning("⚠️ Please enter both username and password")
-            
-#             # Forgot password help text
-#             with st.expander("Forgot Password?"):
-#                 st.info("Please contact your administrator to reset your password.")
-
-#         st.markdown('</div></div>', unsafe_allow_html=True)
-
-#     @staticmethod
-#     def check_authentication():
-#         Auth.initialize_session_state()
-#         if not st.session_state.authenticated:
-#             Auth.render_login_page()
-#             st.stop()
-#         return True
-
+# Test the connection when module is imported
+if __name__ == "__main__":
+    success, message = test_connection()
+    print(f"Connection test: {message}")
