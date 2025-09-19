@@ -62,46 +62,84 @@ class UIComponents:
                 pass
     
     @staticmethod
+    @staticmethod
     def render_login_page():
         """Render the main login page with register and forgot password options."""
-        st.markdown("<h1 style='text-align: center;'>🤖 AMS Bot Login</h1>", unsafe_allow_html=True)
+        st.markdown(
+        """
+        <style>
+        .stApp {
+            background-image: url("https://static.vecteezy.com/system/resources/previews/010/952/067/non_2x/qatar-city-buildings-skyline-of-metropolitan-area-modern-city-skyscrapers-skyline-silhouette-eps-free-vector.jpg");
+            background-attachment: fixed;
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-size: 1400px auto;
+            background-position: bottom center;
+
+        }
+        </style>
+        <hr>
+        """,
+        unsafe_allow_html=True
+                    )
+        st.markdown("<h1 style='text-align: center;'> AMS Transition Bot</h1>", unsafe_allow_html=True)
         st.markdown("<hr>", unsafe_allow_html=True)
         
-        # Login Form
-        with st.form("login_form"):
-            st.subheader("Login to Your Account")
-            email = st.text_input("📧 Email", placeholder="Enter your email address")
-            password = st.text_input("🔒 Password", type="password", placeholder="Enter your password")
-            
-            login_submitted = st.form_submit_button("🚀 Login", type="primary", use_container_width=True)
-            
-            if login_submitted:
-                if not email or not password:
-                    st.error("Please fill in both email and password")
-                else:
-                    ok, message = authenticate_user(email, password)
-                    if ok:
-                        st.session_state.logged_in = True
-                        st.session_state.user_email = email
-                        st.success("Login successful! Redirecting...")
-                        UIComponents.safe_rerun()
-                    else:
-                        st.error(message)
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        # Navigation buttons
-        col1, col2 = st.columns([1, 1])
+        # Layout with navigation on left and form on right
+        col1, col2 = st.columns([1, 2])
         
         with col1:
-            if st.button("📝 Create New Account", use_container_width=True):
-                st.session_state.page = "register"
+            # st.markdown("<div style='background-color: #f0f2f5; padding: 1rem; border-radius: 8px;'>", unsafe_allow_html=True)
+            # st.markdown("<h3 style='text-align: center;'>Navigation</h3>", unsafe_allow_html=True)
+            # if st.button("Login", key="login_nav", help="Active page", type="primary"):
+                # pass  # No action needed as it's the active page
+            if os.path.exists(Config.LOGO_PATH):
+                logo_img = Image.open(Config.LOGO_PATH)
+                st.image(logo_img, width=450)
+            else:
+                st.warning("Logo image not found.")
+            if st.button("Create Account", key="create_nav", on_click=lambda: setattr(st.session_state, 'page', 'register'), use_container_width=True):
                 UIComponents.safe_rerun()
+            if st.button("Forgot Password?", key="forgot_nav", on_click=lambda: setattr(st.session_state, 'page', 'forgot_password'), use_container_width=True):
+                UIComponents.safe_rerun()
+            # if st.button("Reset Password", key="reset_nav", on_click=lambda: setattr(st.session_state, 'page', 'reset_password'), use_container_width=True):
+            #     UIComponents.safe_rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
         
         with col2:
-            if st.button("🔑 Forgot Password?", use_container_width=True):
-                st.session_state.page = "forgot_password"
-                UIComponents.safe_rerun()
+            # Login Form
+            with st.form("login_form"):
+                st.subheader("Login to Your Account")
+                username = st.text_input("📝 Username", placeholder="Your unique username")
+                password = st.text_input("🔒 Password", type="password", placeholder="Your password", key="password_input")
+                
+                # Password visibility toggle
+                if "show_password" not in st.session_state:
+                    st.session_state.show_password = False
+                if st.checkbox("Show password", key="show_password_toggle"):
+                    st.session_state.show_password = not st.session_state.show_password
+                    st.experimental_rerun()
+                if st.session_state.show_password:
+                    st.text_input("🔒 Password", value=password, key="password_visible", disabled=True)
+                
+                login_submitted = st.form_submit_button("🚀 Login", type="primary", use_container_width=True)
+                
+                if login_submitted:
+                    if not username or not password:
+                        st.error("Please fill in both username and password")
+                    else:
+                        # Simulate authentication (replace with actual logic)
+                        ok, message = authenticate_user(username, password)  # Adjust authenticate_user to use username
+                        if ok:
+                            st.session_state.logged_in = True
+                            st.session_state.user_email = username  # Adjust based on your auth logic
+                            st.success("Login successful! Redirecting...")
+                            UIComponents.safe_rerun()
+                        else:
+                            st.error(message)
+        
+        # Illustration placeholder (replace with actual image path)
+        # st.image("path_to_illustration.jpg", caption="Login Illustration", use_column_width=True)
     
     @staticmethod
     def render_register_page():
